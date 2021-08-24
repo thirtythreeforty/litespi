@@ -156,11 +156,11 @@ class LiteSPIPHYCore(Module, AutoCSR, AutoDoc, ModuleDoc):
         ]
 
         # CS control.
-        cs_timer = WaitTimer(cs_delay + 1) # Ensure cs_delay cycles between XFers.
+        cs_timer = PulsedWait(cs_delay + 1) # Ensure cs_delay cycles between XFers.
         cs_out   = Signal.like(self.cs)
         self.submodules += cs_timer
         self.comb += [
-            cs_timer.wait.eq(self.cs != 0),
+            cs_timer.start.eq(self.cs == 0),
             If(cs_timer.done,
                 cs_out.eq(self.cs)
             ).Else(
@@ -359,6 +359,26 @@ class LiteSPIPHYCore(Module, AutoCSR, AutoDoc, ModuleDoc):
                 NextState("IDLE"),
             )
         )
+
+
+class PulsedWait(Module):
+    def __init__(self, t):
+        self.start = Signal()
+        self.done  = Signal()
+
+        self.last  = Signal()
+
+        count = Signal(max=t + 1)
+        self.comb += self.done.eq(count == 0)
+        self.sync += [
+            self.last.eq(self.start),
+            If(self.start & ~self.last & self.done,
+                count.eq(count.reset)
+            ).Else(
+                If(~self.done, count.eq(count - 1))
+            )
+        ]
+
 
 # LiteSPI PHY --------------------------------------------------------------------------------------
 
